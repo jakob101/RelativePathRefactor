@@ -3,6 +3,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as path from "path";
+import * as fs from "fs";
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -33,25 +34,70 @@ const IMPORT_REGEX: RegExp = /import(.*)from[ ]+[\"|\'](.*)[\"|\']\;/i;
 
 class FixImports {
 
-    private _selectedItemUri: vscode.Uri;
+    private _workspaceEdits: { [path: string]: vscode.WorkspaceEdit };
+    private _textEdits: { [path: string]: vscode.TextEdit[] };
+
+    constructor() {
+        this._workspaceEdits = {};
+        this._textEdits = {};
+    }
 
     public fixImports(uri: vscode.Uri) {
-        this._selectedItemUri = uri;
+        const isFolder = fs.lstatSync(uri.path).isDirectory();
+        if (!isFolder) {
+            this._textEdits[uri.path] = [];
+            vscode.workspace.openTextDocument(uri).then(document => {
+                this.parseFile(document);
+            });
+            
+            return;
+        }
 
-        // Access file
-        const filePromise = vscode.workspace.openTextDocument(uri);
+        // it is a folder
+        const folderPath = vscode.workspace.asRelativePath(uri);
+        const pattern = `${folderPath}/**/*.*`;
+        const findFilesPromise = vscode.workspace.findFiles(pattern, '**∕node_modules∕**', 0);
 
-        // Parse file
-        filePromise.then((document: vscode.TextDocument) => this.parseFile(document));
+        findFilesPromise.then(files => {
+
+            files.forEach(file => {
+                this._textEdits[file.path] = [];
+                vscode.workspace.openTextDocument(file).then(document => {
+                    this.parseFile(document);
+                });
+            });
+
+            /*
+            const filesResolvedPromises = files.map(file => {
+                return vscode.workspace.openTextDocument(file).then(document => {
+                    return this.parseFile(document);
+                })
+            })
+
+            Promise.all(filesResolvedPromises).then(() => {
+                vscode.workspace.applyEdit(this._workspaceEdit);
+            });
+            */
+        });
     }
 
     private parseFile(document: vscode.TextDocument) {
+        let lines: vscode.TextLine[] = [];
         if (document.lineCount > 0) {
             for (var index = 0; index < document.lineCount; index++) {
-                var line = document.lineAt(index);
-                this.parseLine(line, document);
+                lines.push(document.lineAt(index));
             }
         }
+
+        const linePromises = lines.map(line => {
+            return this.parseLine(line, document);
+        });
+
+        return Promise.all(linePromises).then(() => {
+            this._workspaceEdits[document.uri.path] = new vscode.WorkspaceEdit();
+            this._workspaceEdits[document.uri.path].set(document.uri, this._textEdits[document.uri.path]);
+            vscode.workspace.applyEdit(this._workspaceEdits[document.uri.path]);
+        })
     }
 
     private parseLine(line: vscode.TextLine, document: vscode.TextDocument) {
@@ -69,9 +115,10 @@ class FixImports {
             return;
         }
 
-        const pattern = `**/${pathArray[pathArray.length - 1]}.[jt]s?`;
+        const pattern = `**/${pathArray[pathArray.length - 1]}.[jt]s*`;
         const findFilePromise = vscode.workspace.findFiles(pattern, '**∕node_modules∕**', 2);
-        findFilePromise.then(files => {
+        
+        return findFilePromise.then(files => {
             // ignore ambiguous results
             if (files.length !== 1) {
                 return null;
@@ -79,7 +126,7 @@ class FixImports {
 
             // find relative path
             const targetPath = files[0].path;
-            const currentPath = this._selectedItemUri.path;
+            const currentPath = document.uri.path;
             let relativePath = path.relative(currentPath, targetPath).replace(".", "").replace(/\\/g, "/") + "drek";
             
             // remove extension
@@ -91,16 +138,13 @@ class FixImports {
 
             //Replace last part of regex with relative path
             const newImportStatement = `import${match[1]}from "${relativePath}";`;
-            const lineTextEdit = new vscode.TextEdit(line.range, newImportStatement);
-            const workspaceEdit = new vscode.WorkspaceEdit();
-            workspaceEdit.set(document.uri, [lineTextEdit]);
-            vscode.workspace.applyEdit(workspaceEdit);
-            document.save();
-            vscode.window.showInformationMessage('Success');
+            const textEdit = new vscode.TextEdit(line.range, newImportStatement);
+            this._textEdits[document.uri.path].push(textEdit);
         });
     }
 
     dispose() {
-        this._selectedItemUri = null;
+        this._textEdits = null;
+        this._workspaceEdits = null;
     }
 }
