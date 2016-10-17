@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import * as path from "path";
 import * as fs from "fs";
+import PreviewChangesProvider from "./previewChangesProvider";
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -47,7 +48,7 @@ class FixImports {
         if (!isFolder) {
             this._textEdits[uri.path] = [];
             vscode.workspace.openTextDocument(uri).then(document => {
-                this.parseFile(document);
+                this.parseFile(document).then(() => this.createPreview());
             });
             
             return;
@@ -60,24 +61,14 @@ class FixImports {
 
         findFilesPromise.then(files => {
 
-            files.forEach(file => {
+            const filePromises = files.map(file => {
                 this._textEdits[file.path] = [];
-                vscode.workspace.openTextDocument(file).then(document => {
-                    this.parseFile(document);
+                return vscode.workspace.openTextDocument(file).then(document => {
+                    return this.parseFile(document);
                 });
             });
 
-            /*
-            const filesResolvedPromises = files.map(file => {
-                return vscode.workspace.openTextDocument(file).then(document => {
-                    return this.parseFile(document);
-                })
-            })
-
-            Promise.all(filesResolvedPromises).then(() => {
-                vscode.workspace.applyEdit(this._workspaceEdit);
-            });
-            */
+            Promise.all(filePromises).then(() => this.createPreview());
         });
     }
 
@@ -97,6 +88,7 @@ class FixImports {
             this._workspaceEdits[document.uri.path] = new vscode.WorkspaceEdit();
             this._workspaceEdits[document.uri.path].set(document.uri, this._textEdits[document.uri.path]);
             vscode.workspace.applyEdit(this._workspaceEdits[document.uri.path]);
+            document.save();
         })
     }
 
@@ -136,11 +128,23 @@ class FixImports {
                 return;
             }
 
+            // if nothing changed
+            if (relativePath === match[2]) {
+                return;
+            }
+
             //Replace last part of regex with relative path
             const newImportStatement = `import${match[1]}from "${relativePath}";`;
             const textEdit = new vscode.TextEdit(line.range, newImportStatement);
             this._textEdits[document.uri.path].push(textEdit);
         });
+    }
+
+    private createPreview() {
+        let previewUri = vscode.Uri.parse('changes-preview://authority/changes-preview');
+        let provider = new PreviewChangesProvider(this._textEdits);
+        let registration = vscode.workspace.registerTextDocumentContentProvider('changes-preview', provider);
+        vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two, 'Review Changes');
     }
 
     dispose() {
