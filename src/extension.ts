@@ -37,6 +37,7 @@ class FixImports {
 
     private _workspaceEdits: { [path: string]: vscode.WorkspaceEdit };
     private _textEdits: { [path: string]: vscode.TextEdit[] };
+    private _oldLines: { [path: string]: string[] };
     private _previewUri = vscode.Uri.parse('changes-preview://authority/changes-preview');
     private _previewProvider: PreviewChangesProvider;
 
@@ -49,10 +50,12 @@ class FixImports {
     public fixImports(uri: vscode.Uri) {
         this._workspaceEdits = {};
         this._textEdits = {};
+        this._oldLines = {};
 
         const isFolder = fs.lstatSync(uri.path).isDirectory();
         if (!isFolder) {
             this._textEdits[uri.path] = [];
+            this._oldLines[uri.path] = [];
             vscode.workspace.openTextDocument(uri).then(document => {
                 this.parseFile(document).then(() => this.createPreview());
             });
@@ -66,9 +69,9 @@ class FixImports {
         const findFilesPromise = vscode.workspace.findFiles(pattern, '**∕node_modules∕**', 0);
 
         findFilesPromise.then(files => {
-
             const filePromises = files.map(file => {
                 this._textEdits[file.path] = [];
+                this._oldLines[file.path] = [];
                 return vscode.workspace.openTextDocument(file).then(document => {
                     return this.parseFile(document);
                 });
@@ -143,17 +146,19 @@ class FixImports {
             const newImportStatement = `import${match[1]}from "${relativePath}";`;
             const textEdit = new vscode.TextEdit(line.range, newImportStatement);
             this._textEdits[document.uri.path].push(textEdit);
+            this._oldLines[document.uri.path].push(match[0]);
         });
     }
 
     private createPreview() {
-        this._previewProvider.setTextEdits(this._textEdits);
+        this._previewProvider.setTextEdits(this._textEdits, this._oldLines);
         this._previewProvider.update(this._previewUri);
         vscode.commands.executeCommand('vscode.previewHtml', this._previewUri, vscode.ViewColumn.Two, 'Review Changes');
     }
 
     dispose() {
-        this._textEdits = null;
         this._workspaceEdits = null;
+        this._textEdits = null;
+        this._oldLines = null;
     }
 }
