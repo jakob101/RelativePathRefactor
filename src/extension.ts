@@ -37,13 +37,19 @@ class FixImports {
 
     private _workspaceEdits: { [path: string]: vscode.WorkspaceEdit };
     private _textEdits: { [path: string]: vscode.TextEdit[] };
+    private _previewUri = vscode.Uri.parse('changes-preview://authority/changes-preview');
+    private _previewProvider: PreviewChangesProvider;
 
-    constructor() {
-        this._workspaceEdits = {};
-        this._textEdits = {};
+    constructor() {        
+        // initialize preview
+        this._previewProvider = new PreviewChangesProvider();
+        vscode.workspace.registerTextDocumentContentProvider('changes-preview', this._previewProvider);
     }
 
     public fixImports(uri: vscode.Uri) {
+        this._workspaceEdits = {};
+        this._textEdits = {};
+
         const isFolder = fs.lstatSync(uri.path).isDirectory();
         if (!isFolder) {
             this._textEdits[uri.path] = [];
@@ -141,10 +147,9 @@ class FixImports {
     }
 
     private createPreview() {
-        let previewUri = vscode.Uri.parse('changes-preview://authority/changes-preview');
-        let provider = new PreviewChangesProvider(this._textEdits);
-        let registration = vscode.workspace.registerTextDocumentContentProvider('changes-preview', provider);
-        vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two, 'Review Changes');
+        this._previewProvider.setTextEdits(this._textEdits);
+        this._previewProvider.update(this._previewUri);
+        vscode.commands.executeCommand('vscode.previewHtml', this._previewUri, vscode.ViewColumn.Two, 'Review Changes');
     }
 
     dispose() {

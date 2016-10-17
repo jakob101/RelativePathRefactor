@@ -3,8 +3,18 @@ import * as vscode from 'vscode';
 
 export default class PreviewChangesProvider implements vscode.TextDocumentContentProvider {
     
+    private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
     private _textEdits: { [path: string]: vscode.TextEdit[] };
-    constructor(_textEdits: { [path: string]: vscode.TextEdit[] }) {
+
+    get onDidChange(): vscode.Event<vscode.Uri> {
+        return this._onDidChange.event;
+    }
+
+    public update(uri: vscode.Uri) {
+        this._onDidChange.fire(uri);
+    }
+
+    public setTextEdits(_textEdits: { [path: string]: vscode.TextEdit[] }) {
         this._textEdits = _textEdits;
     }
     
@@ -26,5 +36,9 @@ export default class PreviewChangesProvider implements vscode.TextDocumentConten
         }
         
         return result;
+    }
+
+    dispose() {
+        this._textEdits = {};
     }
 }
