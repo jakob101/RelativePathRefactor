@@ -11,10 +11,6 @@ import PreviewChangesProvider from "./previewChangesProvider";
 export function activate(context: vscode.ExtensionContext) {
     let fixImports = new FixImports();
 
-    // Use the console to output diagnostic information (console.log) and errors (console.error)
-    // This line of code will only be executed once when your extension is activated
-    console.log('Congratulations, your extension "fiximports" is now active!');
-
     // The command has been defined in the package.json file
     // Now provide the implementation of the command with  registerCommand
     // The commandId parameter must match the command field in package.json
@@ -69,15 +65,33 @@ class FixImports {
         const findFilesPromise = vscode.workspace.findFiles(pattern, '**∕node_modules∕**', 0);
 
         findFilesPromise.then(files => {
-            const filePromises = files.map(file => {
-                this._textEdits[file.path] = [];
-                this._oldLines[file.path] = [];
-                return vscode.workspace.openTextDocument(file).then(document => {
-                    return this.parseFile(document);
-                });
-            });
+            if (files.length > 200) {
+                vscode.window.showWarningMessage("There is more than 200 files found. Are you sure you want to continue?", "Yes", "No, stop!").then((response) => {
+                    if (response !== "Yes") {
+                        return;
+                    }
 
-            Promise.all(filePromises).then(() => this.createPreview());
+                    this.parseAllFiles(files);
+                });
+            } else {
+                this.parseAllFiles(files);
+            }
+        });
+    }
+
+    private parseAllFiles(files: vscode.Uri[]) {
+        vscode.window.showInformationMessage(`Parsing ${files.length} files. Please wait...`);
+        const filePromises = files.map(file => {
+            this._textEdits[file.path] = [];
+            this._oldLines[file.path] = [];
+            return vscode.workspace.openTextDocument(file).then(document => {
+                return this.parseFile(document);
+            });
+        });
+
+        Promise.all(filePromises).then(() => { 
+            this.createPreview();
+            vscode.window.showInformationMessage(`Successfully parsed ${filePromises.length} files.`);
         });
     }
 
@@ -94,11 +108,12 @@ class FixImports {
         });
 
         return Promise.all(linePromises).then(() => {
+            vscode.window.setStatusBarMessage(`Parsed ${document.fileName}`, 1000);
             this._workspaceEdits[document.uri.path] = new vscode.WorkspaceEdit();
             this._workspaceEdits[document.uri.path].set(document.uri, this._textEdits[document.uri.path]);
             vscode.workspace.applyEdit(this._workspaceEdits[document.uri.path]);
             document.save();
-        })
+        });
     }
 
     private parseLine(line: vscode.TextLine, document: vscode.TextDocument) {
@@ -128,13 +143,18 @@ class FixImports {
             // find relative path
             const targetPath = files[0].path;
             const currentPath = document.uri.path;
-            let relativePath = path.relative(currentPath, targetPath).replace(".", "").replace(/\\/g, "/") + "drek";
+            let relativePath = path.relative(currentPath, targetPath).replace(".", "").replace(/\\/g, "/");
             
+            if (!relativePath) {
+                return;
+            }
+
             // remove extension
             relativePath = relativePath.substring(0, relativePath.lastIndexOf("."));
 
-            if (!relativePath) {
-                return;
+            // remove leading dot
+            if (relativePath.startsWith("./../")) {
+                relativePath = relativePath.substring(2, relativePath.length);
             }
 
             // if nothing changed
