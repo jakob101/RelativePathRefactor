@@ -48,7 +48,7 @@ class FixImports {
         this._textEdits = {};
         this._oldLines = {};
 
-        const isFolder = fs.lstatSync(uri.path).isDirectory();
+        const isFolder = fs.lstatSync(uri.fsPath).isDirectory();
         if (!isFolder) {
             this._textEdits[uri.path] = [];
             this._oldLines[uri.path] = [];
@@ -141,8 +141,8 @@ class FixImports {
             }
 
             // find relative path
-            const targetPath = files[0].path;
-            const currentPath = document.uri.path;
+            const targetPath = files[0].fsPath;
+            const currentPath = document.uri.fsPath;
             let relativePath = path.relative(currentPath, targetPath).replace(".", "").replace(/\\/g, "/");
             
             if (!relativePath) {
