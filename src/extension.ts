@@ -54,6 +54,11 @@ class FixImports {
             this._textEdits[uri.path] = [];
             this._oldLines[uri.path] = [];
             vscode.workspace.openTextDocument(uri).then(document => {
+                if (!document) {
+                    vscode.window.showWarningMessage("Failed when opening the file. Make sure it's a text document.");
+                    return;
+                }
+
                 this.parseFile(document).then(() => this.createPreview());
             });
             
@@ -86,6 +91,10 @@ class FixImports {
             this._textEdits[file.path] = [];
             this._oldLines[file.path] = [];
             return vscode.workspace.openTextDocument(file).then(document => {
+                if (!document) {
+                    return;
+                }
+
                 return this.parseFile(document);
             });
         });

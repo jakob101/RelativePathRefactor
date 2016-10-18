@@ -34,8 +34,8 @@ export default class PreviewChangesProvider implements vscode.TextDocumentConten
             result += `<div>${relativePath}</div>`;
             const localEdits = this._textEdits[key];
             localEdits.forEach((edit, index) => {
-                result += `<div style="color: red">- ${this._oldLines[key][index]}</div>`;
-                result += `<div style="color: green">+ ${edit.newText}</div>`;
+                result += `<pre style="color: #f14e4e; margin-bottom: 0;"><code>- ${this._oldLines[key][index].replace("<", "&lt;")}</code></pre>`;
+                result += `<pre style="color: #2fb72f; margin-top: 0;"><code>+ ${edit.newText.replace("<", "&lt;")}</code></pre>`;
             });
             result += "<br />";
         }
