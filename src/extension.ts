@@ -77,16 +77,45 @@ class FixImports {
                         return;
                     }
 
-                    this.parseAllFiles(files);
+                    this.parseFilesInChunks(files);
                 });
             } else {
-                this.parseAllFiles(files);
+                this.parseFilesInChunks(files);
             }
         });
     }
 
-    private parseAllFiles(files: vscode.Uri[]) {
+    private parseFilesInChunks(files: vscode.Uri[]) {
         vscode.window.showInformationMessage(`Parsing ${files.length} files. Please wait...`);
+        const chunkSize: number = 20;
+        const arrayHoldingSplitArrays: vscode.Uri[][] = [];
+        let i: number = 0;
+        let j: number = files.length;
+        let bigArrayIndex: number = 0;
+
+        for (i = 0; i<j; i += chunkSize) {
+            arrayHoldingSplitArrays[bigArrayIndex++] = files.slice(i, i+chunkSize);
+        }
+
+        this.parseAllFilesPromiseResolver(arrayHoldingSplitArrays, 0);
+    }
+
+    private parseAllFilesPromiseResolver(files: vscode.Uri[][], index: number) {
+        const promise = this.parseAllFiles(files[index++]);
+        Promise.resolve(promise).then(() => {
+            if (index === files.length) {
+                this.createPreview();
+                vscode.window.showInformationMessage(`Successfully parsed files. Please review the output.`);
+                
+                // We're done!
+                return;
+            }
+
+            return this.parseAllFilesPromiseResolver(files, index);
+        });
+    }
+
+    private parseAllFiles(files: vscode.Uri[]) {
         const filePromises = files.map(file => {
             this._textEdits[file.path] = [];
             this._oldLines[file.path] = [];
@@ -99,10 +128,7 @@ class FixImports {
             });
         });
 
-        Promise.all(filePromises).then(() => { 
-            this.createPreview();
-            vscode.window.showInformationMessage(`Successfully parsed ${filePromises.length} files.`);
-        });
+        return Promise.all(filePromises);
     }
 
     private parseFile(document: vscode.TextDocument) {
