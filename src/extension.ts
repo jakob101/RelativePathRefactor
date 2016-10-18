@@ -27,7 +27,8 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
 }
 
-const IMPORT_REGEX: RegExp = /import(.*)from[ ]+[\"|\'](.*)[\"|\']\;/i;
+const RELATIVE_PATH_REGEX: RegExp = /[\"|\']([\.].*?)[\"|\']/i;
+//const IMPORT_REGEX: RegExp = /import(.*)from[ ]+[\"|\'](.*)[\"|\']\;/i;
 
 class FixImports {
 
@@ -118,20 +119,16 @@ class FixImports {
 
     private parseLine(line: vscode.TextLine, document: vscode.TextDocument) {
         const lineContents = line.text.trim();
-        const match = lineContents.match(IMPORT_REGEX);
+        const match = lineContents.match(RELATIVE_PATH_REGEX);
 
-        if (!match || match.length > 3) {
+        if (!match || match.length > 2) {
             return;
         }
 
-        // TODO: split by '\' if exists
-        const pathArray = match[2].split('/');
-
-        if (pathArray.length === 1) {
-            return;
-        }
-
-        const pattern = `**/${pathArray[pathArray.length - 1]}.[jt]s*`;
+        // Get file name
+        const fileName = path.basename(match[1]);
+        const extension = path.extname(fileName);
+        const pattern = extension === '' ? `**/${fileName}.*` : `**/${fileName}`;
         const findFilePromise = vscode.workspace.findFiles(pattern, '**∕node_modules∕**', 2);
         
         return findFilePromise.then(files => {
@@ -158,15 +155,14 @@ class FixImports {
             }
 
             // if nothing changed
-            if (relativePath === match[2]) {
+            if (relativePath + extension === match[1]) {
                 return;
             }
 
             //Replace last part of regex with relative path
-            const newImportStatement = `import${match[1]}from "${relativePath}";`;
-            const textEdit = new vscode.TextEdit(line.range, newImportStatement);
+            const textEdit = new vscode.TextEdit(line.range, line.text.replace(RELATIVE_PATH_REGEX, `\"${relativePath}${extension}\"`));
             this._textEdits[document.uri.path].push(textEdit);
-            this._oldLines[document.uri.path].push(match[0]);
+            this._oldLines[document.uri.path].push(line.text);
         });
     }
 
