@@ -1,30 +1,48 @@
 {
-  "name": "fiximports",
-  "displayName": "FixImports",
-  "description": "Fix relative paths in import statements across a folder tree",
-  "version": "0.0.1",
+  "name": "relativepathrefactor",
+  "displayName": "Relative Path Refactor",
+  "description": "When refactoring, fix relative path errors. Automatically find and fix all relative paths for all files in a folder. After fixing, review changes!",
+  "version": "0.6.0",
+  "license": "MIT",
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/jakob101/RelativePathRefactor"
+  },
   "publisher": "jakob101",
+  "galleryBanner": {
+      "color": "#373277",
+      "theme": "dark"
+  },
+  "icon": "refactor.png",
   "engines": {
     "vscode": "^1.5.0"
   },
+  "keywords": [
+      "relative",
+      "path",
+      "url",
+      "file",
+      "fix",
+      "refactor"
+  ],
   "categories": [
     "Other"
   ],
   "activationEvents": [
-    "onCommand:extension.fixImports"
+    "onCommand:extension.relativepathrefactor"
   ],
   "main": "./out/src/extension",
   "contributes": {
     "commands": [
       {
-        "command": "extension.fixImports",
-        "title": "Fix imports"
+        "command": "extension.relativepathrefactor",
+        "title": "Fix relative paths"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "extension.fixImports",
+          "command": "extension.relativepathrefactor",
           "group": "1_modification"
         }
       ]
