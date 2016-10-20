@@ -2,7 +2,7 @@
 When you have a bunch of relative paths to fix, just right click on the parent folder and fix all of them at once.
 Alternatively, you can press open command palette `F1` and search for `Relative Path Refactor`.
 
-![GIF](https://media.giphy.com/media/3oz8xZd3kObS1duwMw/source.gif)
+![GIF](https://media.giphy.com/media/3oz8xyRQqsATPdD9bW/source.gif)
 
 ## How to use
 First, you will need to install Visual Studio Code. In the command palette (`Ctrl-Shift-P` or `Cmd-Shift-P`) select `Install Extension` and choose `RelativePathRefactor`.
