@@ -2,7 +2,7 @@
     "name": "relativepathrefactor",
     "displayName": "Relative Path Refactor",
     "description": "When refactoring, fix relative path errors. Automatically find and fix all relative paths for all files in a folder. After fixing, review changes!",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "license": "MIT",
     "repository": {
         "type": "git",
